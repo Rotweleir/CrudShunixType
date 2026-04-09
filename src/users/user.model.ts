@@ -11,6 +11,7 @@ export interface UserAttributes {
     firstName: string;
     lastName: string;
     role: string;
+    websiteUrl: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -31,6 +32,7 @@ implements UserAttributes {
     public firstName!: string;
     public lastName!: string;
     public role!: string;
+    public websiteUrl!: string;
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
 }
@@ -40,7 +42,7 @@ export default function (sequelize: Sequelize): typeof User {
     User.init(
         {
             id: {
-                type: DataTypes.INTEGER,
+                type: DataTypes.INTEGER.UNSIGNED,
                 autoIncrement: true,
                 primaryKey: true,
             },
@@ -69,6 +71,12 @@ export default function (sequelize: Sequelize): typeof User {
                 type: DataTypes.STRING,
                 allowNull: false,
             },
+
+            websiteUrl: {
+                type: DataTypes.STRING,
+                allowNull: true,
+            },
+            
             createdAt: {
                 type: DataTypes.DATE,
                 allowNull: false,

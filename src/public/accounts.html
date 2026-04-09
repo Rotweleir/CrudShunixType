@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Accounts Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="app-shell bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="adminDashboard.html">AdminPanel</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-white" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Welcome, <span id="adminName" class="fw-bold">Admin</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="adminDropdown">
+                            <li><a class="dropdown-item" href="adminDashboard.html">Dashboard</a></li>
+                            <li><a class="dropdown-item" href="employees.html">Employees</a></li>
+                            <li><a class="dropdown-item" href="departments.html">Departments</a></li>
+                            <li><a class="dropdown-item" href="allrequestadmin.html">All Requests</a></li>
+                            <li><a class="dropdown-item active" href="accounts.html">User Accounts</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="logout()">Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="app-main">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">User Accounts Management</h5>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" onclick="filterAccounts('all')">All</button>
+                            <button class="btn btn-success btn-sm me-2" onclick="filterAccounts('verified')">Verified</button>
+                            <button class="btn btn-warning btn-sm" onclick="filterAccounts('unverified')">Unverified</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Verification Status</th>
+                                        <th>Created Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="accountsTable">
+                                    <tr><td colspan="6" class="text-center">Loading accounts...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </main>
+
+    <!-- Edit Account Modal -->
+    <div class="modal fade" id="editAccountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="editAccountForm" onsubmit="updateAccount(event)">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Account</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="editAccountId">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Username</label>
+                            <input type="text" id="editUsername" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Role</label>
+                            <select class="form-select" id="editRole" required>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Verification Status</label>
+                            <select class="form-select" id="editVerified" required>
+                                <option value="true">Verified</option>
+                                <option value="false">Not Verified</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let allAccounts = [];
+        let currentFilter = 'all';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                fetchAllAccounts();
+            }
+        });
+
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!token || user.role !== 'admin') {
+                alert('Access denied. Admin privileges required.');
+                window.location.href = 'login.html';
+                return false;
+            }
+            document.getElementById('adminName').textContent = user.username;
+            return true;
+        }
+
+        async function fetchAllAccounts() {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch('http://localhost:4000/api/admin/accounts', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    allAccounts = data;
+                    displayAccounts(allAccounts);
+                } else {
+                    document.getElementById('accountsTable').innerHTML = 
+                        '<tr><td colspan="6" class="text-center text-danger">Failed to load accounts</td></tr>';
+                }
+            } catch (error) {
+                console.error('Fetch accounts error:', error);
+                document.getElementById('accountsTable').innerHTML = 
+                    '<tr><td colspan="6" class="text-center text-danger">Error loading accounts</td></tr>';
+            }
+        }
+
+        function displayAccounts(accounts) {
+            const tbody = document.getElementById('accountsTable');
+            if (!accounts || accounts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No accounts found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = accounts.map(account => {
+                const verificationBadge = getVerificationBadge(account.is_verified);
+                const roleBadge = getRoleBadge(account.role);
+                const date = new Date(account.created_at).toLocaleDateString();
+                
+                return `
+                    <tr>
+                        <td>${account.id}</td>
+                        <td><strong>${account.username}</strong></td>
+                        <td>${roleBadge}</td>
+                        <td>${verificationBadge}</td>
+                        <td>${date}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${JSON.stringify(account).replace(/"/g, '&quot;')})">
+                                Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteAccount(${account.id}, '${account.username}')">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getVerificationBadge(isVerified) {
+            return isVerified 
+                ? '<span class="badge bg-success">Verified</span>'
+                : '<span class="badge bg-warning text-dark">Not Verified</span>';
+        }
+
+        function getRoleBadge(role) {
+            return role === 'admin' 
+                ? '<span class="badge bg-danger">Admin</span>'
+                : '<span class="badge bg-info">User</span>';
+        }
+
+        function filterAccounts(status) {
+            currentFilter = status;
+            
+            // Update button states
+            document.querySelectorAll('.card-header button').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-light');
+            });
+            event.target.classList.remove('btn-light');
+            event.target.classList.add('btn-primary');
+
+            if (status === 'all') {
+                displayAccounts(allAccounts);
+            } else if (status === 'verified') {
+                const filtered = allAccounts.filter(acc => acc.is_verified === true);
+                displayAccounts(filtered);
+            } else if (status === 'unverified') {
+                const filtered = allAccounts.filter(acc => acc.is_verified === false);
+                displayAccounts(filtered);
+            }
+        }
+
+        function openEditModal(account) {
+            document.getElementById('editAccountId').value = account.id;
+            document.getElementById('editUsername').value = account.username;
+            document.getElementById('editRole').value = account.role;
+            document.getElementById('editVerified').value = account.is_verified.toString();
+            
+            const modal = new bootstrap.Modal(document.getElementById('editAccountModal'));
+            modal.show();
+        }
+
+        async function updateAccount(event) {
+            event.preventDefault();
+            const accountId = document.getElementById('editAccountId').value;
+            const username = document.getElementById('editUsername').value;
+            const role = document.getElementById('editRole').value;
+            const isVerified = document.getElementById('editVerified').value === 'true';
+            const token = localStorage.getItem('token');
+
+            try {
+                const response = await fetch(`http://localhost:4000/api/admin/accounts/${accountId}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ username, role, is_verified: isVerified })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('Account updated successfully!');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editAccountModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    fetchAllAccounts(); // Refresh the list
+                } else {
+                    alert(data.message || 'Failed to update account');
+                }
+            } catch (error) {
+                console.error('Update account error:', error);
+                alert('Error updating account');
+            }
+        }
+
+        async function deleteAccount(accountId, username) {
+            if (!confirm(`Are you sure you want to delete the account "${username}"?`)) {
+                return;
+            }
+            
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch(`http://localhost:4000/api/admin/accounts/${accountId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('Account deleted successfully!');
+                    fetchAllAccounts(); // Refresh the list
+                } else {
+                    alert(data.message || 'Failed to delete account');
+                }
+            } catch (error) {
+                console.error('Delete account error:', error);
+                alert('Error deleting account');
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
